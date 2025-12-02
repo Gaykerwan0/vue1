@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.operation.mapper.BizRepositoryMapper">
+
+    <select id="listSalesStatistics" resultType="com.youlai.boot.operation.model.vo.SalesStatisticsVO">
+        SELECT
+            br.id            AS repositoryId,
+            br.product_id    AS productId,
+            br.department_id AS stationId,
+            bp.name          AS productName,
+            sd.name          AS stationName,
+            br.current_quantity AS currentQuantity,
+            COALESCE(SUM(bo.quantity), 0)     AS orderCount,
+            COALESCE(SUM(bo.total_amount), 0) AS totalAmount,
+            COALESCE(sd.commission_rate, 0)   AS commissionRate
+        FROM biz_repository br
+                 JOIN biz_products bp ON br.product_id = bp.id
+                 JOIN sys_dept sd ON br.department_id = sd.id
+                 LEFT JOIN biz_orders bo ON bo.repo_id = br.id
+            <if test="query.startDateTime != null">
+                AND bo.order_date &gt;= #{query.startDateTime}
+            </if>
+            <if test="query.endDateTime != null">
+                AND bo.order_date &lt;= #{query.endDateTime}
+            </if>
+        <where>
+            <if test="query.productId != null">
+                br.product_id = #{query.productId}
+            </if>
+            <if test="query.stationId != null">
+                AND br.department_id = #{query.stationId}
+            </if>
+        </where>
+        GROUP BY br.id, br.product_id, br.department_id, bp.name, sd.name, br.current_quantity, sd.commission_rate
+        ORDER BY bp.name, sd.name
+    </select>
+
+    <select id="listRepositoryStocks" resultType="com.youlai.boot.operation.model.vo.RepositoryStockVO">
+        SELECT
+            br.id               AS repositoryId,
+            br.product_id       AS productId,
+            bp.name             AS productName,
+            br.department_id    AS stationId,
+            sd.name             AS stationName,
+            br.current_quantity AS currentQuantity,
+            br.order_quantity_total AS orderQuantityTotal,
+            br.order_date_latest    AS orderDateLatest
+        FROM biz_repository br
+                 JOIN biz_products bp ON br.product_id = bp.id
+                 JOIN sys_dept sd ON br.department_id = sd.id
+        <where>
+            <if test="query.productId != null">
+                br.product_id = #{query.productId}
+            </if>
+            <if test="query.stationId != null">
+                AND br.department_id = #{query.stationId}
+            </if>
+        </where>
+        ORDER BY bp.name, sd.name
+    </select>
+
+    <update id="incrementStock">
+        UPDATE biz_repository
+        SET current_quantity     = IFNULL(current_quantity, 0) + #{quantity},
+            order_quantity_total = IFNULL(order_quantity_total, 0) + #{quantity},
+            order_date_latest    = #{updateTime},
+            update_by            = #{updateBy},
+            update_time          = #{updateTime}
+        WHERE id = #{repositoryId}
+    </update>
+</mapper>

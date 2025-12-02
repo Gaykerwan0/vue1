@@ -28,6 +28,71 @@
       </template>
     </page-content>
 
+    <el-card shadow="never" class="mt-4">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span>商品库存</span>
+          <div class="flex items-center gap-3">
+            <el-select v-model="stockFilters.productId" placeholder="选择商品" clearable filterable style="width: 200px">
+              <el-option
+                v-for="item in productOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            <el-select v-model="stockFilters.stationId" placeholder="选择站点" clearable filterable style="width: 200px">
+              <el-option
+                v-for="item in stationOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            <el-button type="primary" @click="queryStockList">查询</el-button>
+            <el-button @click="resetStockFilters">重置</el-button>
+          </div>
+        </div>
+      </template>
+
+      <el-table :data="stockList" border stripe v-loading="stockLoading">
+        <el-table-column prop="productName" label="商品名称" align="center" min-width="160" />
+        <el-table-column prop="stationName" label="站点" align="center" min-width="120" />
+        <el-table-column prop="currentQuantity" label="当前库存" align="center" width="110" />
+        <el-table-column prop="orderQuantityTotal" label="累计出库数量" align="center" width="140" />
+        <el-table-column prop="orderDateLatest" label="最近出库时间" align="center" min-width="180" />
+        <el-table-column label="操作" align="center" width="120">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="openReplenishDialog(row)">补货</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-dialog v-model="replenishDialogVisible" title="库存补货" width="420px" destroy-on-close>
+      <el-form label-width="90px">
+        <el-form-item label="商品">
+          <span>{{ replenishTarget.productName || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="站点">
+          <span>{{ replenishTarget.stationName || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="补货数量">
+          <el-input-number
+            v-model="replenishForm.quantity"
+            :min="1"
+            :controls="false"
+            style="width: 100%"
+            placeholder="请输入补货数量"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="replenishDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="replenishSubmitting" @click="submitReplenish">确认</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Description Modal -->
     <el-dialog
       v-model="descriptionModalVisible"
@@ -86,6 +151,9 @@
 </template>
 
 <script setup lang="ts">
+import { reactive, ref, onMounted } from "vue";
+import { ElMessage } from "element-plus";
+
 defineOptions({ name: "BizProducts" });
 
 // Add these to your existing script setup
@@ -101,6 +169,11 @@ import BizProductsAPI, {
   BizProductsForm,
   BizProductsPageQuery,
 } from "@/api/products/biz-products-api";
+import OperationSalesAPI, {
+  RepositoryStockItem,
+  RepositoryStockQuery,
+  ReplenishForm,
+} from "@/api/operation/sales-api";
 import type { IObject, IModalConfig, IContentConfig, ISearchConfig } from "@/components/CURD/types";
 import usePage from "@/components/CURD/usePage";
 
@@ -377,4 +450,80 @@ const handleOperateClick = (data: IObject) => {
 const handleToolbarClick = (name: string) => {
   console.log(name);
 };
+
+// 商品库存
+const stockFilters = reactive<RepositoryStockQuery>({
+  productId: undefined,
+  stationId: undefined,
+});
+
+const stockList = ref<RepositoryStockItem[]>([]);
+const stockLoading = ref(false);
+const productOptions = ref<OptionType[]>([]);
+const stationOptions = ref<OptionType[]>([]);
+
+const replenishDialogVisible = ref(false);
+const replenishSubmitting = ref(false);
+const replenishForm = reactive<ReplenishForm>({
+  repositoryId: 0,
+  quantity: 1,
+});
+const replenishTarget = reactive({
+  productName: "",
+  stationName: "",
+});
+
+const fetchProductOptions = async () => {
+  productOptions.value = (await OperationSalesAPI.getProducts()) || [];
+};
+
+const fetchStationOptions = async () => {
+  stationOptions.value = (await OperationSalesAPI.getStations()) || [];
+};
+
+const queryStockList = async () => {
+  stockLoading.value = true;
+  try {
+    const res = await OperationSalesAPI.getStocks(stockFilters);
+    stockList.value = res || [];
+  } finally {
+    stockLoading.value = false;
+  }
+};
+
+const resetStockFilters = () => {
+  stockFilters.productId = undefined;
+  stockFilters.stationId = undefined;
+  queryStockList();
+};
+
+const openReplenishDialog = (row: RepositoryStockItem) => {
+  if (!row.repositoryId) return;
+  replenishForm.repositoryId = row.repositoryId;
+  replenishForm.quantity = 1;
+  replenishTarget.productName = row.productName || "";
+  replenishTarget.stationName = row.stationName || "";
+  replenishDialogVisible.value = true;
+};
+
+const submitReplenish = async () => {
+  if (!replenishForm.quantity || replenishForm.quantity <= 0) {
+    ElMessage.warning("请输入正确的补货数量");
+    return;
+  }
+  replenishSubmitting.value = true;
+  try {
+    await OperationSalesAPI.replenish(replenishForm);
+    ElMessage.success("补货成功");
+    replenishDialogVisible.value = false;
+    await queryStockList();
+  } finally {
+    replenishSubmitting.value = false;
+  }
+};
+
+onMounted(async () => {
+  await Promise.all([fetchProductOptions(), fetchStationOptions()]);
+  await queryStockList();
+});
 </script>
