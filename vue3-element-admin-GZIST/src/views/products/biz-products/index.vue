@@ -12,6 +12,7 @@
     <page-content
       ref="contentRef"
       :content-config="contentConfig"
+      :style="{ height: '30%', minHeight: '30vh', flexBasis: '30%' }"
       @add-click="handleAddClick"
       @export-click="handleExportClick"
       @search-click="handleSearchClick"
@@ -28,12 +29,18 @@
       </template>
     </page-content>
 
-    <el-card shadow="never" class="mt-4">
+    <el-card shadow="never" class="mt-4" v-hasPerm="['products:biz-products:fillrepo']">
       <template #header>
         <div class="flex items-center justify-between">
           <span>商品库存</span>
           <div class="flex items-center gap-3">
-            <el-select v-model="stockFilters.productId" placeholder="选择商品" clearable filterable style="width: 200px">
+            <el-select
+              v-model="stockFilters.productId"
+              placeholder="选择商品"
+              clearable
+              filterable
+              style="width: 200px"
+            >
               <el-option
                 v-for="item in productOptions"
                 :key="item.value"
@@ -41,7 +48,13 @@
                 :value="item.value"
               />
             </el-select>
-            <el-select v-model="stockFilters.stationId" placeholder="选择站点" clearable filterable style="width: 200px">
+            <el-select
+              v-model="stockFilters.stationId"
+              placeholder="选择站点"
+              clearable
+              filterable
+              style="width: 200px"
+            >
               <el-option
                 v-for="item in stationOptions"
                 :key="item.value"
@@ -55,12 +68,22 @@
         </div>
       </template>
 
-      <el-table :data="stockList" border stripe v-loading="stockLoading">
+      <el-table :data="stockList" stripe v-loading="stockLoading" max-height="50vh">
         <el-table-column prop="productName" label="商品名称" align="center" min-width="160" />
         <el-table-column prop="stationName" label="站点" align="center" min-width="120" />
         <el-table-column prop="currentQuantity" label="当前库存" align="center" width="110" />
-        <el-table-column prop="orderQuantityTotal" label="累计出库数量" align="center" width="140" />
-        <el-table-column prop="orderDateLatest" label="最近出库时间" align="center" min-width="180" />
+        <el-table-column
+          prop="orderQuantityTotal"
+          label="累计出库数量"
+          align="center"
+          width="140"
+        />
+        <el-table-column
+          prop="orderDateLatest"
+          label="最近出库时间"
+          align="center"
+          min-width="180"
+        />
         <el-table-column label="操作" align="center" width="120">
           <template #default="{ row }">
             <el-button type="primary" link @click="openReplenishDialog(row)">补货</el-button>
@@ -72,10 +95,10 @@
     <el-dialog v-model="replenishDialogVisible" title="库存补货" width="420px" destroy-on-close>
       <el-form label-width="90px">
         <el-form-item label="商品">
-          <span>{{ replenishTarget.productName || '-' }}</span>
+          <span>{{ replenishTarget.productName || "-" }}</span>
         </el-form-item>
         <el-form-item label="站点">
-          <span>{{ replenishTarget.stationName || '-' }}</span>
+          <span>{{ replenishTarget.stationName || "-" }}</span>
         </el-form-item>
         <el-form-item label="补货数量">
           <el-input-number
@@ -89,7 +112,9 @@
       </el-form>
       <template #footer>
         <el-button @click="replenishDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="replenishSubmitting" @click="submitReplenish">确认</el-button>
+        <el-button type="primary" :loading="replenishSubmitting" @click="submitReplenish">
+          确认
+        </el-button>
       </template>
     </el-dialog>
 
@@ -407,7 +432,7 @@ const addModalConfig: IModalConfig<BizProductsForm> = reactive({
     // },
   ],
   // 提交函数
-  formAction: (data: BizProductsForm) => {
+  formAction: (data: BizProductsF9rm) => {
     console.log("formAction data:", data);
     if (data.id) {
       // 编辑

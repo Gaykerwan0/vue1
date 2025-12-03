@@ -3,6 +3,7 @@ package com.youlai.boot.operation.controller;
 import com.youlai.boot.common.model.Option;
 import com.youlai.boot.core.web.Result;
 import com.youlai.boot.operation.model.form.ReplenishForm;
+import com.youlai.boot.operation.model.form.StockAdjustForm;
 import com.youlai.boot.operation.model.query.RepositoryStockQuery;
 import com.youlai.boot.operation.model.query.SalesStatisticsQuery;
 import com.youlai.boot.operation.model.vo.RepositoryStockVO;
@@ -58,5 +59,11 @@ public class OperationSalesController {
     @GetMapping("/stock")
     public Result<List<RepositoryStockVO>> listStocks(RepositoryStockQuery queryParams) {
         return Result.success(operationSalesService.listRepositoryStocks(queryParams));
+    }
+
+    @Operation(summary = "设置库存")
+    @PostMapping("/stock/set")
+    public Result<Void> setStock(@RequestBody @Valid StockAdjustForm formData) {
+        return Result.judge(operationSalesService.setStock(formData));
     }
 }
