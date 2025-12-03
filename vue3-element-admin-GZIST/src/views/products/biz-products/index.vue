@@ -51,6 +51,7 @@
             </el-select>
             <el-button type="primary" @click="queryStockList">查询</el-button>
             <el-button @click="resetStockFilters">重置</el-button>
+            <el-button type="success" @click="startCreateStock">新增库存</el-button>
           </div>
         </div>
       </template>
@@ -70,13 +71,46 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="stockDialogVisible" title="设置库存" width="420px" destroy-on-close>
+    <el-dialog
+      v-model="stockDialogVisible"
+      :title="stockDialogMode === 'edit' ? '修改库存' : '新增库存'"
+      width="420px"
+      destroy-on-close
+    >
       <el-form label-width="90px">
         <el-form-item label="商品">
-          <span>{{ stockTarget.productName || '-' }}</span>
+          <el-select
+            v-model="stockForm.productId"
+            placeholder="请选择商品"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="stockDialogMode === 'edit'"
+          >
+            <el-option
+              v-for="item in productOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="站点">
-          <span>{{ stockTarget.stationName || '-' }}</span>
+          <el-select
+            v-model="stockForm.stationId"
+            placeholder="请选择站点"
+            filterable
+            clearable
+            style="width: 100%"
+            :disabled="stockDialogMode === 'edit'"
+          >
+            <el-option
+              v-for="item in stationOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="库存数量">
           <el-input-number
@@ -464,15 +498,18 @@ const productOptions = ref<OptionType[]>([]);
 const stationOptions = ref<OptionType[]>([]);
 
 const stockDialogVisible = ref(false);
+const stockDialogMode = ref<"create" | "edit">("edit");
 const stockSubmitting = ref(false);
-const stockForm = reactive<StockAdjustForm>({
-  productId: 0,
-  stationId: 0,
+type StockFormState = {
+  productId?: number;
+  stationId?: number;
+  quantity: number;
+};
+
+const stockForm = reactive<StockFormState>({
+  productId: undefined,
+  stationId: undefined,
   quantity: 0,
-});
-const stockTarget = reactive({
-  productName: "",
-  stationName: "",
 });
 
 const fetchProductOptions = async () => {
@@ -499,23 +536,47 @@ const resetStockFilters = () => {
   queryStockList();
 };
 
+const resetStockForm = () => {
+  stockForm.productId = undefined;
+  stockForm.stationId = undefined;
+  stockForm.quantity = 0;
+};
+
+const startCreateStock = () => {
+  resetStockForm();
+  stockDialogMode.value = "create";
+  stockDialogVisible.value = true;
+};
+
 const openStockDialog = (row: RepositoryStockItem) => {
-  stockForm.productId = row.productId || 0;
-  stockForm.stationId = row.stationId || 0;
+  stockDialogMode.value = "edit";
+  stockForm.productId = row.productId;
+  stockForm.stationId = row.stationId;
   stockForm.quantity = row.currentQuantity ?? 0;
-  stockTarget.productName = row.productName || "";
-  stockTarget.stationName = row.stationName || "";
   stockDialogVisible.value = true;
 };
 
 const submitStock = async () => {
+  if (!stockForm.productId) {
+    ElMessage.warning("请选择商品");
+    return;
+  }
+  if (!stockForm.stationId) {
+    ElMessage.warning("请选择站点");
+    return;
+  }
   if (stockForm.quantity === undefined || stockForm.quantity === null || stockForm.quantity < 0) {
     ElMessage.warning("库存数量不能小于0");
     return;
   }
   stockSubmitting.value = true;
   try {
-    await OperationSalesAPI.setStock(stockForm);
+    const payload: StockAdjustForm = {
+      productId: stockForm.productId,
+      stationId: stockForm.stationId,
+      quantity: stockForm.quantity,
+    };
+    await OperationSalesAPI.setStock(payload);
     ElMessage.success("库存已更新");
     stockDialogVisible.value = false;
     await queryStockList();
