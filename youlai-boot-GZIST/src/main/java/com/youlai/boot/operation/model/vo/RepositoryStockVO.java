@@ -22,4 +22,6 @@ public class RepositoryStockVO {
     private Integer orderQuantityTotal;
 
     private LocalDateTime orderDateLatest;
+
+    private LocalDateTime updateTime;
 }

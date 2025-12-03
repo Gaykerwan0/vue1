@@ -27,6 +27,14 @@ const OperationSalesAPI = {
       data,
     });
   },
+  /** 设置库存 */
+  setStock(data: StockAdjustForm) {
+    return request({
+      url: `${OPERATION_SALES_BASE_URL}/stock/set`,
+      method: "post",
+      data,
+    });
+  },
   /** 商品下拉 */
   getProducts() {
     return request<any, OptionType[]>({
@@ -79,9 +87,16 @@ export interface RepositoryStockItem {
   currentQuantity?: number;
   orderQuantityTotal?: number;
   orderDateLatest?: string;
+  updateTime?: string;
 }
 
 export interface ReplenishForm {
   repositoryId: number;
+  quantity: number;
+}
+
+export interface StockAdjustForm {
+  productId: number;
+  stationId: number;
   quantity: number;
 }

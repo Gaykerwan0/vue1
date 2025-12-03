@@ -6,11 +6,13 @@ import com.youlai.boot.common.model.Option;
 import com.youlai.boot.security.util.SecurityUtils;
 import com.youlai.boot.operation.mapper.BizRepositoryMapper;
 import com.youlai.boot.operation.model.form.ReplenishForm;
+import com.youlai.boot.operation.model.form.StockAdjustForm;
 import com.youlai.boot.operation.model.query.RepositoryStockQuery;
 import com.youlai.boot.operation.model.query.SalesStatisticsQuery;
 import com.youlai.boot.operation.model.vo.RepositoryStockVO;
 import com.youlai.boot.operation.model.vo.SalesStatisticsVO;
 import com.youlai.boot.operation.service.OperationSalesService;
+import com.youlai.boot.operation.model.entity.BizRepository;
 import com.youlai.boot.products.model.entity.BizProducts;
 import com.youlai.boot.products.service.BizProductsService;
 import com.youlai.boot.system.model.entity.Dept;
@@ -92,6 +94,44 @@ public class OperationSalesServiceImpl implements OperationSalesService {
     @Override
     public List<RepositoryStockVO> listRepositoryStocks(RepositoryStockQuery queryParams) {
         return bizRepositoryMapper.listRepositoryStocks(queryParams);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean setStock(StockAdjustForm formData) {
+        Assert.notNull(formData.getProductId(), "商品不能为空");
+        Assert.notNull(formData.getStationId(), "站点不能为空");
+        Assert.notNull(formData.getQuantity(), "库存数量不能为空");
+        Assert.isTrue(formData.getQuantity() >= 0, "库存数量不能小于0");
+
+        LocalDateTime now = LocalDateTime.now();
+        Long userId = SecurityUtils.getUserId();
+
+        BizRepository existed = bizRepositoryMapper.selectOne(new LambdaQueryWrapper<BizRepository>()
+                .eq(BizRepository::getDepartmentId, formData.getStationId())
+                .eq(BizRepository::getProductId, formData.getProductId())
+                .last("limit 1")
+        );
+
+        if (existed == null) {
+            BizRepository entity = new BizRepository();
+            entity.setDepartmentId(formData.getStationId());
+            entity.setProductId(formData.getProductId());
+            entity.setCurrentQuantity(formData.getQuantity());
+            entity.setOrderQuantityTotal(0);
+            entity.setCreateBy(userId);
+            entity.setUpdateBy(userId);
+            entity.setCreateTime(now);
+            entity.setUpdateTime(now);
+            return bizRepositoryMapper.insert(entity) > 0;
+        }
+
+        BizRepository updateEntity = new BizRepository();
+        updateEntity.setId(existed.getId());
+        updateEntity.setCurrentQuantity(formData.getQuantity());
+        updateEntity.setUpdateBy(userId);
+        updateEntity.setUpdateTime(now);
+        return bizRepositoryMapper.updateById(updateEntity) > 0;
     }
 
     private void normalizeDateRange(SalesStatisticsQuery queryParams) {

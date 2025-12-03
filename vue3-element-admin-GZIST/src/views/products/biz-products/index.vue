@@ -61,35 +61,36 @@
         <el-table-column prop="currentQuantity" label="当前库存" align="center" width="110" />
         <el-table-column prop="orderQuantityTotal" label="累计出库数量" align="center" width="140" />
         <el-table-column prop="orderDateLatest" label="最近出库时间" align="center" min-width="180" />
-        <el-table-column label="操作" align="center" width="120">
+        <el-table-column prop="updateTime" label="库存更新时间" align="center" min-width="180" />
+        <el-table-column label="操作" align="center" width="140">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openReplenishDialog(row)">补货</el-button>
+            <el-button type="primary" link @click="openStockDialog(row)">设置库存</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="replenishDialogVisible" title="库存补货" width="420px" destroy-on-close>
+    <el-dialog v-model="stockDialogVisible" title="设置库存" width="420px" destroy-on-close>
       <el-form label-width="90px">
         <el-form-item label="商品">
-          <span>{{ replenishTarget.productName || '-' }}</span>
+          <span>{{ stockTarget.productName || '-' }}</span>
         </el-form-item>
         <el-form-item label="站点">
-          <span>{{ replenishTarget.stationName || '-' }}</span>
+          <span>{{ stockTarget.stationName || '-' }}</span>
         </el-form-item>
-        <el-form-item label="补货数量">
+        <el-form-item label="库存数量">
           <el-input-number
-            v-model="replenishForm.quantity"
-            :min="1"
+            v-model="stockForm.quantity"
+            :min="0"
             :controls="false"
             style="width: 100%"
-            placeholder="请输入补货数量"
+            placeholder="请输入库存数量"
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="replenishDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="replenishSubmitting" @click="submitReplenish">确认</el-button>
+        <el-button @click="stockDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="stockSubmitting" @click="submitStock">确认</el-button>
       </template>
     </el-dialog>
 
@@ -172,7 +173,7 @@ import BizProductsAPI, {
 import OperationSalesAPI, {
   RepositoryStockItem,
   RepositoryStockQuery,
-  ReplenishForm,
+  StockAdjustForm,
 } from "@/api/operation/sales-api";
 import type { IObject, IModalConfig, IContentConfig, ISearchConfig } from "@/components/CURD/types";
 import usePage from "@/components/CURD/usePage";
@@ -462,13 +463,14 @@ const stockLoading = ref(false);
 const productOptions = ref<OptionType[]>([]);
 const stationOptions = ref<OptionType[]>([]);
 
-const replenishDialogVisible = ref(false);
-const replenishSubmitting = ref(false);
-const replenishForm = reactive<ReplenishForm>({
-  repositoryId: 0,
-  quantity: 1,
+const stockDialogVisible = ref(false);
+const stockSubmitting = ref(false);
+const stockForm = reactive<StockAdjustForm>({
+  productId: 0,
+  stationId: 0,
+  quantity: 0,
 });
-const replenishTarget = reactive({
+const stockTarget = reactive({
   productName: "",
   stationName: "",
 });
@@ -497,28 +499,28 @@ const resetStockFilters = () => {
   queryStockList();
 };
 
-const openReplenishDialog = (row: RepositoryStockItem) => {
-  if (!row.repositoryId) return;
-  replenishForm.repositoryId = row.repositoryId;
-  replenishForm.quantity = 1;
-  replenishTarget.productName = row.productName || "";
-  replenishTarget.stationName = row.stationName || "";
-  replenishDialogVisible.value = true;
+const openStockDialog = (row: RepositoryStockItem) => {
+  stockForm.productId = row.productId || 0;
+  stockForm.stationId = row.stationId || 0;
+  stockForm.quantity = row.currentQuantity ?? 0;
+  stockTarget.productName = row.productName || "";
+  stockTarget.stationName = row.stationName || "";
+  stockDialogVisible.value = true;
 };
 
-const submitReplenish = async () => {
-  if (!replenishForm.quantity || replenishForm.quantity <= 0) {
-    ElMessage.warning("请输入正确的补货数量");
+const submitStock = async () => {
+  if (stockForm.quantity === undefined || stockForm.quantity === null || stockForm.quantity < 0) {
+    ElMessage.warning("库存数量不能小于0");
     return;
   }
-  replenishSubmitting.value = true;
+  stockSubmitting.value = true;
   try {
-    await OperationSalesAPI.replenish(replenishForm);
-    ElMessage.success("补货成功");
-    replenishDialogVisible.value = false;
+    await OperationSalesAPI.setStock(stockForm);
+    ElMessage.success("库存已更新");
+    stockDialogVisible.value = false;
     await queryStockList();
   } finally {
-    replenishSubmitting.value = false;
+    stockSubmitting.value = false;
   }
 };
 
